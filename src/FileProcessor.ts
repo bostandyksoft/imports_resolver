@@ -1,4 +1,4 @@
-import {Syntax, parse} from 'esprima-next';
+const acornLoose = require('acorn-loose');
 
 export type Import = {
     source: string;
@@ -8,17 +8,18 @@ export class FileProcessor {
 
     process(content: string): Import[] {
         let result = [];
-        let tree = parse(content, {
-            sourceType: 'module'
-        });
-
-        tree.body.forEach(stmt => {
-            if (stmt.type == Syntax.ImportDeclaration) {
-                result.push({
-                    source: stmt.source.value
-                })
-            }
-        })
+        try {
+            let tree = acornLoose.parse(content);
+            tree.body.forEach(stmt => {
+                if (stmt.type == 'ImportDeclaration') {
+                    result.push({
+                        source: stmt.source.value
+                    })
+                }
+            })
+        } catch (e) {
+            console.log(e);
+        }
         return result;
     }
 

@@ -41,4 +41,17 @@ describe('simplest search imports', () => {
         expect(imports[0].source).toEqual('library');
         expect(imports[1].source).toEqual('path1/path2/library');
     });
+
+    it('export', () => {
+        let imports = processor.process(`
+           import * as lib from 'library';
+           import { lib } from 'path1/path2/library';
+            
+            export
+        `);
+
+        expect(imports.length).toEqual(2);
+        expect(imports[0].source).toEqual('library');
+        expect(imports[1].source).toEqual('path1/path2/library');
+    })
 })
