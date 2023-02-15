@@ -1,10 +1,5 @@
 import {FileProcessor} from "./FileProcessor";
 
-type LoaderOptions = {
-    baseUrl: string;
-    handler: ContentHandler;
-}
-
 type ModuleInfo = {
     id: string,
     content?: string,
@@ -12,6 +7,14 @@ type ModuleInfo = {
 }
 
 export type Context = {
+    /**
+     * root for HTTP method to load script content
+     */
+    baseUri: string,
+    /**
+     * Handler to handle loaded script content
+     */
+    handler?: ContentHandler,
     /**
      * Map of some scripts, that are laying nearby and there is no reason to load it from server
      */
@@ -32,14 +35,10 @@ type ContentHandler = (module: string, content: string) => void;
 
 export class ImportResolver {
 
-    _baseUrl: string;
-    _handler: ContentHandler;
     _dependencyMap: Map<string, ModuleInfo>;
     _processor: FileProcessor;
 
-    constructor(props: LoaderOptions) {
-        this._baseUrl = props.baseUrl;
-        this._handler = props.handler;
+    constructor() {
         this._dependencyMap = new Map<string, ModuleInfo>();
         this._processor = new FileProcessor();
     }
@@ -48,11 +47,11 @@ export class ImportResolver {
         this._dependencyMap.clear();
     }
 
-    async resolveDependencies(sourceFile: string, context?: Context) {
+    async resolveDependencies(sourceFile: string, context: Context) {
         await this.resolveDeps(sourceFile, 0, context);
     }
 
-    async resolveDeps(initialSourceFile: string, depth: number, context?: Context) {
+    async resolveDeps(initialSourceFile: string, depth: number, context: Context) {
         const me = this;
         let dependencies = me.getNewDependencies(initialSourceFile).filter(dep => !me._dependencyMap.has(dep))
         this.resolveNeighbours(dependencies, context);
@@ -65,7 +64,9 @@ export class ImportResolver {
                 let moduleInfo = me._dependencyMap.get(module);
                 try {
                     let content = await me.getContent(module, context);
-                    me._handler(module, content);
+                    if (context.handler) {
+                        context.handler(module, content);
+                    }
                     moduleInfo.state = 'ready';
                     await me.resolveDeps(content, depth + 1, context);
                 } catch (e) {
@@ -74,15 +75,17 @@ export class ImportResolver {
         )
     }
 
-    resolveNeighbours(dependencies: string[], context?: Context) {
-        let neighbours = context?.neighbours;
+    resolveNeighbours(dependencies: string[], context: Context) {
+        let neighbours = context.neighbours;
         if (neighbours) {
             for (let len = dependencies.length - 1, i = len; i >= 0; i--) {
                 let dep = dependencies[i];
                 for (let key in neighbours) {
                     if (neighbours.hasOwnProperty(key)) {
                         if (dep.toLowerCase() == key.toLowerCase()) {
-                            this._handler(key, neighbours[key]);
+                            if (context.handler) {
+                                context.handler(key, neighbours[key]);
+                            }
                             dependencies.splice(i, 1);
                         }
                     }
@@ -113,12 +116,12 @@ export class ImportResolver {
         })
     }
 
-    async getContent(moduleName: string, context?: Context): Promise<string> {
+    async getContent(moduleName: string, context: Context): Promise<string> {
         const me = this;
         let opts = {
-            method: context?.method || 'GET',
+            method: context.method || 'GET',
             headers: {
-                "Content-Type": context?.contentType || "text/html"
+                "Content-Type": context.contentType || "text/html"
             }
         }
         if (opts.method.toUpperCase() !== 'GET' && context) {
@@ -128,7 +131,7 @@ export class ImportResolver {
 
             opts = {...opts, ...{body: JSON.stringify(body)}}
         }
-        return me.fetchContent(me._baseUrl + moduleName, opts);
+        return me.fetchContent(context.baseUri + moduleName, opts);
 
     }
 

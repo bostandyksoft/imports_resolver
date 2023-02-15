@@ -21,12 +21,7 @@ describe('Simple test for ImportResolver', () => {
         });
     });
 
-    let importResolver = new ImportResolver({
-        baseUrl: 'localhost/',
-        handler: (module, content) => {
-            imports.set(module, content);
-        }
-    })
+    let importResolver = new ImportResolver()
 
     it('neighbour resolve', () => {
         let context = {
@@ -53,7 +48,12 @@ describe('Simple test for ImportResolver', () => {
         importResolver.clearCache();
         await importResolver.resolveDependencies(`
             import {lib} from 'lib'
-        `)
+        `, {
+            baseUri: 'localhost/',
+            handler: (module, content) => {
+                imports.set(module, content);
+            }
+        })
 
         expect(queue.length).toEqual(1);
         expect(queue[0].url).toEqual('localhost/lib');
@@ -72,6 +72,10 @@ describe('Simple test for ImportResolver', () => {
         await importResolver.resolveDependencies(`
             import {lib} from 'lib'
         `, {
+            baseUri: 'localhost/',
+            handler: (module, content) => {
+                imports.set(module, content);
+            },
             method: 'POST',
             contentType: 'application/json',
             someInfo: 1,

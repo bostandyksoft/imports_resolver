@@ -1,6 +1,6 @@
 {
   "name": "imports_resolver",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Library parses ts/js source and tries to load content of imported files",
   "bugs": {
     "url": "https://github.com/bostandyksoft/imports_resolver/issues"
