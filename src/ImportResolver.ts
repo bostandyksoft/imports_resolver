@@ -6,8 +6,27 @@ type LoaderOptions = {
 }
 
 type ModuleInfo = {
+    id: string,
+    content?: string,
     state: 'loading' | 'ready'
 }
+
+export type Context = {
+    /**
+     * Map of some scripts, that are laying nearby and there is no reason to load it from server
+     */
+    neighbours?: object,
+    /**
+     * HTTP method to load script content
+     */
+    method?: string,
+    /**
+     * Content type of request to script content
+     */
+    contentType?: string,
+    [key: string]: any
+}
+
 
 type ContentHandler = (module: string, content: string) => void;
 
@@ -25,28 +44,53 @@ export class ImportResolver {
         this._processor = new FileProcessor();
     }
 
-    async resolveDependencies(sourceFile) {
-        await this.resolveDeps(sourceFile, 0);
+    clearCache() {
+        this._dependencyMap.clear();
     }
 
-    async resolveDeps(initialSourceFile: string, depth: number) {
+    async resolveDependencies(sourceFile: string, context?: Context) {
+        await this.resolveDeps(sourceFile, 0, context);
+    }
+
+    async resolveDeps(initialSourceFile: string, depth: number, context?: Context) {
         const me = this;
         let dependencies = me.getNewDependencies(initialSourceFile).filter(dep => !me._dependencyMap.has(dep))
+        this.resolveNeighbours(dependencies, context);
         dependencies.forEach(dep => me._dependencyMap.set(dep, {
+            id: dep,
             state: 'loading'
-        }))
+        }));
         await Promise.all(
             dependencies.map(async module => {
                 let moduleInfo = me._dependencyMap.get(module);
                 try {
-                    let content = await me.getContent(module);
+                    let content = await me.getContent(module, context);
                     me._handler(module, content);
                     moduleInfo.state = 'ready';
-                    await me.resolveDeps(content, depth + 1);
+                    await me.resolveDeps(content, depth + 1, context);
                 } catch (e) {
                 }
             })
         )
+    }
+
+    resolveNeighbours(dependencies: string[], context?: Context) {
+        let neighbours = context?.neighbours;
+        if (neighbours) {
+            for (let len = dependencies.length - 1, i = len; i >= 0; i--) {
+                let dep = dependencies[i];
+                for (let key in neighbours) {
+                    if (neighbours.hasOwnProperty(key)) {
+                        if (dep.toLowerCase() == key.toLowerCase()) {
+                            this._handler(key, neighbours[key]);
+                            dependencies.splice(i, 1);
+                        }
+                    }
+                }
+            }
+            delete context.neighbours;
+        }
+        return dependencies;
     }
 
     getNewDependencies(content: string) {
@@ -69,19 +113,32 @@ export class ImportResolver {
         })
     }
 
-    async getContent(moduleName: string): Promise<string> {
+    async getContent(moduleName: string, context?: Context): Promise<string> {
         const me = this;
-        const request = new Request(me._baseUrl + moduleName, {
-            method: 'GET',
+        let opts = {
+            method: context?.method || 'GET',
             headers: {
-                "Content-Type": "text/html"
+                "Content-Type": context?.contentType || "text/html"
             }
-        });
+        }
+        if (opts.method.toUpperCase() !== 'GET' && context) {
+            let body = {...context};
+            delete body.method;
+            delete body.contentType;
+
+            opts = {...opts, ...{body: JSON.stringify(body)}}
+        }
+        return me.fetchContent(me._baseUrl + moduleName, opts);
+
+    }
+
+    async fetchContent(url: string, opts: any): Promise<string> {
+        const request = new Request(url, opts);
         const response = await fetch(request);
         if (response.ok) {
             return response.text();
         } else {
-            throw new Error(`Unable to resolve ${moduleName}`);
+            throw new Error(`Unable to load content from ${url}`);
         }
     }
 }

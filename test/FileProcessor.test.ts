@@ -1,6 +1,6 @@
-import {FileProcessor} from "../src/FileProcessor";
+import {FileProcessor} from "../src";
 
-describe('simplest search imports', () => {
+describe('Simple test for FileProcessor', () => {
 
     let processor = new FileProcessor();
 

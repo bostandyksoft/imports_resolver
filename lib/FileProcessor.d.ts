@@ -1,6 +1,9 @@
 export type Import = {
     source: string;
 };
+/**
+ * Class
+ */
 export declare class FileProcessor {
     process(content: string): Import[];
 }
