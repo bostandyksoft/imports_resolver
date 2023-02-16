@@ -13,23 +13,23 @@ then usage ImportResolver:
 ```typescript
 import {ImportResolver} from 'imports_resolver'
 
-const resolver = new ImportResolver({
-    baseUrl : 'some_your_endpoint',
-    handler : (module, content) => {
-        ...
-        some code to process downloaded content
-        ...
-    }
-});
+const resolver = new ImportResolver();
 resolver.resolveDependencies(`
     import {lib} from 'lib';
     
     const result = lib.do();
-`);
+`, {
+    baseUri: 'some_your_endpoint',
+    handler : (module, content) => {
+    //  some code to process downloaded content
+    },
+    
+});
 ```
 
-then usage FileProcessor:
+Full list of context properties in ImportResolver.d.ts
 
+Also you can use FileProcessor class's instance to receive list of imported modules:
 ```typescript
 
 import {FileProcessor} from "imports_resolver";
